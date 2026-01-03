@@ -1,0 +1,446 @@
+<!--
+Project: YHWHInbox
+Date (Gregorian): 2025-12-29
+Date (Hebrew): ח׳ בטבת תשפ״ו
+Time (Asia/Jerusalem): 23:49
+Credits: Concept + implementation crafted for AnLoMinus workflow (no external libraries).
+-->
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>YHWHInbox — תיבת בקשות בכוונה</title>
+  <style>
+    :root{--bg:#0b0f19;--card:#121a2a;--muted:#9fb0d0;--txt:#e9efff;--line:#25324d;--good:#3cffb4;--warn:#ffd36a;--bad:#ff5c7a;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial; background:radial-gradient(1200px 800px at 70% 20%, #18264a 0%, var(--bg) 55%); color:var(--txt);}
+    header{padding:18px 18px 10px; border-bottom:1px solid var(--line); position:sticky; top:0; backdrop-filter: blur(10px); background:rgba(11,15,25,.55);}
+    h1{margin:0;font-size:20px; letter-spacing:.3px}
+    .sub{margin-top:6px;color:var(--muted);font-size:13px; line-height:1.4}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px; display:grid; gap:14px; grid-template-columns: 420px 1fr;}
+    @media (max-width: 980px){.wrap{grid-template-columns:1fr}}
+    .card{background:linear-gradient(180deg, rgba(18,26,42,.95), rgba(18,26,42,.75)); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 30px rgba(0,0,0,.28); overflow:hidden}
+    .card .hd{padding:14px 14px 10px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:10px}
+    .card .bd{padding:14px}
+    .tag{font-size:12px;color:var(--muted);border:1px solid var(--line); padding:5px 10px;border-radius:999px; background:rgba(255,255,255,.03)}
+    .btn{cursor:pointer; border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--txt); padding:10px 12px; border-radius:12px; font-weight:700}
+    .btn:hover{background:rgba(255,255,255,.08)}
+    .btn.primary{border-color:rgba(60,255,180,.35); background:rgba(60,255,180,.10)}
+    .btn.danger{border-color:rgba(255,92,122,.35); background:rgba(255,92,122,.10)}
+    .row{display:grid; gap:10px; grid-template-columns: 1fr 1fr}
+    .row3{display:grid; gap:10px; grid-template-columns: 1.2fr .8fr .8fr}
+    label{font-size:12px;color:var(--muted); display:block; margin:0 0 6px}
+    input, select, textarea{
+      width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--line);
+      background:rgba(0,0,0,.18); color:var(--txt); outline:none;
+    }
+    textarea{min-height:110px; resize:vertical}
+    .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.45}
+    .list{display:grid; gap:10px}
+    .item{border:1px solid var(--line); border-radius:14px; padding:12px; background:rgba(0,0,0,.14)}
+    .topline{display:flex; gap:10px; align-items:flex-start; justify-content:space-between}
+    .title{font-size:14px; font-weight:800}
+    .meta{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
+    .pill{font-size:12px; padding:4px 9px; border-radius:999px; border:1px solid var(--line); color:var(--muted)}
+    .pill.good{border-color:rgba(60,255,180,.35); color:var(--good)}
+    .pill.warn{border-color:rgba(255,211,106,.35); color:var(--warn)}
+    .pill.bad{border-color:rgba(255,92,122,.35); color:var(--bad)}
+    .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+    .split{display:flex; gap:10px; align-items:center}
+    .small{font-size:12px;color:var(--muted)}
+    .kbd{font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; padding:2px 6px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.03)}
+    footer{padding:14px 16px; color:var(--muted); font-size:12px; border-top:1px solid var(--line)}
+    .mono{font-family:ui-monospace, Menlo, Consolas, monospace}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📬 YHWHInbox — תיבת בקשות בכוונה</h1>
+    <div class="sub">
+      🕯️ “הפתרון מוכן” → כאן מסדרים בקשות, מקבצים אותן, וחותמים על צעד מעשי אחד.  
+      <span class="kbd">Local Only</span> • <span class="kbd">Export JSON</span> • <span class="kbd">No Server</span>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <!-- LEFT: Composer -->
+    <section class="card">
+      <div class="hd">
+        <div class="split">
+          <span class="tag">🧾 כתיבה + קיבוץ</span>
+          <span class="tag" id="nowTag">⏱️</span>
+        </div>
+        <button class="btn danger" id="wipeBtn" title="מוחק הכל מהדפדפן">🧹 ניקוי</button>
+      </div>
+      <div class="bd">
+        <div class="row">
+          <div>
+            <label>🧠 כותרת בקשה</label>
+            <input id="title" placeholder="לדוגמה: רוגע בבית / פרנסה נקייה / בהירות החלטה" />
+          </div>
+          <div>
+            <label>🧭 תחום (פרד״ס)</label>
+            <select id="layer">
+              <option value="Peshat">📜 Peshat (פשט)</option>
+              <option value="Remez">🔎 Remez (רמז)</option>
+              <option value="Drash">🧠 Drash (דרש)</option>
+              <option value="Sod">🌌 Sod (סוד)</option>
+              <option value="Tzibur">🏛️ Tzibur (ציבור)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row3">
+          <div>
+            <label>🎯 כוונת-מפתח (מילה אחת)</label>
+            <input id="kavana" placeholder="לדוגמה: אמת / שלום / ניקיון / תיקון" />
+          </div>
+          <div>
+            <label>⚡ עדיפות</label>
+            <select id="prio">
+              <option value="3">🔥 גבוהה</option>
+              <option value="2" selected>✨ בינונית</option>
+              <option value="1">🌿 נמוכה</option>
+            </select>
+          </div>
+          <div>
+            <label>📦 לקפסולה</label>
+            <select id="capsule">
+              <option value="C7">🧺 C7 (7 פריטים)</option>
+              <option value="C13" selected>🧺 C13 (13 פריטים)</option>
+              <option value="C∞">🧺 C∞ (ללא גבול)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div>
+          <label>📝 תוכן הבקשה</label>
+          <textarea id="body" placeholder="כתוב ברור, קצר, ישר ללב. בסוף הוסף: 'הצעד שלי בעולם המעשה הוא: ...'"></textarea>
+          <div class="hint">
+            ✅ מומלץ לסיים בשורה אחת: <span class="mono">“הצעד שלי בעולם המעשה הוא: ____”</span><br/>
+            🧷 הכלי הזה לא “מבטיח תשובות” — הוא **מיישר כוונה ומייצר תנועה**.
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="actions">
+          <button class="btn primary" id="addBtn">➕ הוסף לבקשות</button>
+          <button class="btn" id="bulkBtn">📨 “שליחה מרוכזת” (חותמת)</button>
+          <button class="btn" id="exportBtn">📦 ייצוא JSON</button>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="card" style="border-radius:14px">
+          <div class="hd">
+            <span class="tag">🕯️ פתיחת כוונה</span>
+            <span class="small">מוצג בראש כל “שליחה מרוכזת”</span>
+          </div>
+          <div class="bd">
+            <textarea id="opening" style="min-height:80px">ריבון העולמים, אני מסדר את בקשותיי כדי להיטיב, להתנקות, ולהתקדם בדרך אמת ושלום. תן לי לב נקי ושכל ישר לעשות את חלקי.</textarea>
+          </div>
+        </div>
+
+      </div>
+      <footer>
+        📅 2025-12-29 • ח׳ בטבת תשפ״ו • ⏰ 23:49 (Asia/Jerusalem) • מאגר: <span class="mono">YHWHInbox</span>
+      </footer>
+    </section>
+
+    <!-- RIGHT: Inbox -->
+    <section class="card">
+      <div class="hd">
+        <div class="split">
+          <span class="tag">📥 רשימת בקשות</span>
+          <span class="tag" id="countTag">0</span>
+        </div>
+        <div class="split">
+          <input id="q" placeholder="🔎 חיפוש..." style="width:260px" />
+          <select id="filter" title="סינון">
+            <option value="all">🗂️ הכל</option>
+            <option value="open">🟦 פתוח</option>
+            <option value="sealed">🟩 נחתם</option>
+          </select>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="list" id="list"></div>
+      </div>
+      <footer>
+        ⌨️ טיפ: כתוב “צעד אחד” בכל בקשה — ואז תראה חיים זזים.  
+      </footer>
+    </section>
+  </div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const LS_KEY = "YHWHInbox.v1.requests";
+  const LS_SEALS = "YHWHInbox.v1.seals";
+
+  const state = {
+    requests: loadJSON(LS_KEY, []),
+    seals: loadJSON(LS_SEALS, []),
+  };
+
+  function nowString(){
+    const d = new Date();
+    return d.toLocaleString("en-GB", { timeZone: "Asia/Jerusalem" }).replace(",", "");
+  }
+
+  function prioLabel(n){
+    if(n==3) return {t:"🔥 גבוהה", c:"bad"};
+    if(n==2) return {t:"✨ בינונית", c:"warn"};
+    return {t:"🌿 נמוכה", c:"good"};
+  }
+
+  function save(){
+    localStorage.setItem(LS_KEY, JSON.stringify(state.requests));
+    localStorage.setItem(LS_SEALS, JSON.stringify(state.seals));
+    render();
+  }
+
+  function loadJSON(key, fallback){
+    try{
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : fallback;
+    }catch(e){ return fallback; }
+  }
+
+  function uid(){
+    return "REQ-" + Math.random().toString(16).slice(2,10).toUpperCase() + "-" + Date.now().toString().slice(-6);
+  }
+
+  function addRequest(){
+    const title = $("title").value.trim();
+    const body = $("body").value.trim();
+    const layer = $("layer").value;
+    const kavana = $("kavana").value.trim() || "—";
+    const prio = Number($("prio").value);
+    const capsule = $("capsule").value;
+
+    if(!title || !body){
+      alert("חסר כותרת או תוכן 🙏");
+      return;
+    }
+
+    state.requests.unshift({
+      id: uid(),
+      title, body, layer, kavana, prio, capsule,
+      createdAt: nowString(),
+      sealedAt: null,
+      status: "open"
+    });
+
+    $("title").value = "";
+    $("body").value = "";
+    $("kavana").value = "";
+
+    save();
+  }
+
+  function toggleSeal(id){
+    const r = state.requests.find(x=>x.id===id);
+    if(!r) return;
+    if(r.status==="open"){
+      r.status="sealed";
+      r.sealedAt = nowString();
+    }else{
+      r.status="open";
+      r.sealedAt = null;
+    }
+    save();
+  }
+
+  function removeReq(id){
+    state.requests = state.requests.filter(x=>x.id!==id);
+    save();
+  }
+
+  function bulkSeal(){
+    const opening = $("opening").value.trim();
+    const capsule = $("capsule").value;
+    const openReqs = state.requests.filter(r=>r.status==="open" && (capsule==="C∞" || r.capsule===capsule));
+
+    if(openReqs.length===0){
+      alert("אין בקשות פתוחות לקפסולה שנבחרה 📭");
+      return;
+    }
+
+    // Determine limit
+    let limit = Infinity;
+    if(capsule==="C7") limit = 7;
+    if(capsule==="C13") limit = 13;
+
+    const batch = openReqs.slice(0, limit);
+
+    // seal them
+    const stamp = nowString();
+    batch.forEach(r=>{
+      r.status="sealed";
+      r.sealedAt = stamp;
+    });
+
+    // create a seal record
+    state.seals.unshift({
+      sealId: "SEAL-" + stamp.replaceAll("/","-").replaceAll(":","").replaceAll(" ","_"),
+      createdAt: stamp,
+      capsule,
+      opening,
+      ids: batch.map(b=>b.id)
+    });
+
+    save();
+    alert("נחתם ונמסר בכוונה ✅");
+  }
+
+  function exportJSON(){
+    const payload = {
+      spec: "YHWHInbox_export_v1",
+      exportedAt: nowString(),
+      requests: state.requests,
+      seals: state.seals
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "YHWHInbox_export_" + Date.now() + ".json";
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function wipeAll(){
+    if(!confirm("למחוק הכל מהדפדפן? פעולה בלתי הפיכה 🧹")) return;
+    state.requests = [];
+    state.seals = [];
+    save();
+  }
+
+  function render(){
+    $("nowTag").textContent = "⏱️ " + nowString();
+    $("countTag").textContent = "📦 " + state.requests.length;
+
+    const q = $("q").value.trim().toLowerCase();
+    const filter = $("filter").value;
+
+    let items = state.requests.slice();
+    if(filter==="open") items = items.filter(x=>x.status==="open");
+    if(filter==="sealed") items = items.filter(x=>x.status==="sealed");
+    if(q){
+      items = items.filter(x =>
+        (x.title||"").toLowerCase().includes(q) ||
+        (x.body||"").toLowerCase().includes(q) ||
+        (x.kavana||"").toLowerCase().includes(q) ||
+        (x.layer||"").toLowerCase().includes(q)
+      );
+    }
+
+    const root = $("list");
+    root.innerHTML = "";
+
+    if(items.length===0){
+      root.innerHTML = `<div class="item"><div class="title">📭 אין פריטים להצגה</div><div class="hint">הוסף בקשה משמאל → והיא תופיע כאן.</div></div>`;
+      return;
+    }
+
+    items.forEach(r=>{
+      const p = prioLabel(r.prio);
+      const sealed = r.status==="sealed";
+      const pillStatus = sealed ? `<span class="pill good">🟩 נחתם</span>` : `<span class="pill warn">🟦 פתוח</span>`;
+      const sealedAt = sealed ? `<div class="small">🖋️ נחתם: ${r.sealedAt}</div>` : `<div class="small">🕯️ נוצר: ${r.createdAt}</div>`;
+      const el = document.createElement("div");
+      el.className="item";
+      el.innerHTML = `
+        <div class="topline">
+          <div>
+            <div class="title">${escapeHTML(r.title)}</div>
+            <div class="meta">
+              <span class="pill">${iconLayer(r.layer)} ${r.layer}</span>
+              <span class="pill">${escapeHTML(r.kavana)}</span>
+              <span class="pill ${p.c}">${p.t}</span>
+              <span class="pill">📦 ${escapeHTML(r.capsule)}</span>
+              ${pillStatus}
+            </div>
+          </div>
+          <div class="small mono">${escapeHTML(r.id)}</div>
+        </div>
+        <div style="height:8px"></div>
+        <div class="hint">${escapeHTML(r.body).replaceAll("\n","<br/>")}</div>
+        <div style="height:10px"></div>
+        ${sealedAt}
+        <div class="actions">
+          <button class="btn primary" data-seal="${r.id}">✅ ${sealed ? "החזר לפתוח" : "סמן נחתם"}</button>
+          <button class="btn" data-copy="${r.id}">📋 העתק</button>
+          <button class="btn danger" data-del="${r.id}">🗑️ מחק</button>
+        </div>
+      `;
+      root.appendChild(el);
+    });
+
+    // wire actions
+    root.querySelectorAll("[data-seal]").forEach(b=>{
+      b.onclick = ()=>toggleSeal(b.getAttribute("data-seal"));
+    });
+    root.querySelectorAll("[data-del]").forEach(b=>{
+      b.onclick = ()=>removeReq(b.getAttribute("data-del"));
+    });
+    root.querySelectorAll("[data-copy]").forEach(b=>{
+      b.onclick = ()=>{
+        const id = b.getAttribute("data-copy");
+        const r = state.requests.find(x=>x.id===id);
+        if(!r) return;
+        const txt =
+`[${r.layer}] ${r.title}
+Kavana: ${r.kavana}
+Priority: ${r.prio}
+Status: ${r.status}
+---
+${r.body}
+---
+Created: ${r.createdAt}
+Sealed: ${r.sealedAt || "-"}
+ID: ${r.id}`;
+        navigator.clipboard.writeText(txt);
+        alert("הועתק 📋");
+      };
+    });
+  }
+
+  function iconLayer(layer){
+    if(layer==="Peshat") return "📜";
+    if(layer==="Remez") return "🔎";
+    if(layer==="Drash") return "🧠";
+    if(layer==="Sod") return "🌌";
+    return "🏛️";
+  }
+
+  function escapeHTML(s){
+    return String(s||"")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  // events
+  $("addBtn").onclick = addRequest;
+  $("bulkBtn").onclick = bulkSeal;
+  $("exportBtn").onclick = exportJSON;
+  $("wipeBtn").onclick = wipeAll;
+  $("q").oninput = render;
+  $("filter").onchange = render;
+
+  // initial
+  render();
+  setInterval(()=>{ $("nowTag").textContent = "⏱️ " + nowString(); }, 1000);
+})();
+</script>
+</body>
+</html>
